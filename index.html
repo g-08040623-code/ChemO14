@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Chemistry Quiz</title>
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0b0d19;
+            --card-bg: rgba(22, 27, 46, 0.85);
+            --neon-blue: #00d2ff;
+            --neon-purple: #9d4edd;
+            --neon-pink: #f72585;
+            --correct-green: #2ec4b6;
+            --wrong-red: #e63946;
+            --text-light: #f8f9fa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        #stars-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .quiz-container {
+            position: relative;
+            z-index: 1;
+            width: 90%;
+            max-width: 800px;
+            background: var(--card-bg);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.2), inset 0 0 15px rgba(0, 210, 255, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 20px 0;
+        }
+
+        h1, h2 {
+            text-align: center;
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group {
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            max-width: 400px;
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: 2px solid var(--neon-purple);
+            background: rgba(11, 13, 25, 0.7);
+            color: #fff;
+            font-size: 1.1rem;
+            outline: none;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(45deg, var(--neon-purple), var(--neon-blue));
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.8);
+        }
+
+        .btn-center {
+            display: flex;
+            justify-content: center;
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .badge {
+            background: rgba(0, 210, 255, 0.1);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        .question-text {
+            font-size: 1.15rem;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-light);
+            padding: 15px 20px;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .option-btn:hover:not([disabled]) {
+            background: rgba(157, 78, 221, 0.2);
+            border-color: var(--neon-purple);
+            transform: translateX(5px);
+        }
+
+        .option-btn.correct {
+            background: rgba(46, 196, 182, 0.2) !important;
+            border-color: var(--correct-green) !important;
+            color: #2ec4b6;
+        }
+
+        .option-btn.wrong {
+            background: rgba(230, 57, 70, 0.2) !important;
+            border-color: var(--wrong-red) !important;
+            color: #e63946;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .leaderboard-table th, .leaderboard-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .leaderboard-table th {
+            color: var(--neon-blue);
+            border-bottom: 2px solid var(--neon-blue);
+        }
+
+        .solution-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 4px solid var(--neon-blue);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .solution-card.correct-card {
+            border-left-color: var(--correct-green);
+        }
+
+        .solution-card.wrong-card {
+            border-left-color: var(--wrong-red);
+        }
+
+        .explanation {
+            margin-top: 10px;
+            font-size: 0.95rem;
+            color: #d0d0d0;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="stars-canvas"></canvas>
+
+    <div class="quiz-container">
+        <!-- 1. WELCOME SCREEN -->
+        <div id="screen-welcome" class="screen active">
+            <h1>🌌 STPM Chemistry Quiz</h1>
+            <p style="text-align: center; color: #aaa; margin-bottom: 20px;">
+                Organic Chemistry Practice
+            </p>
+            <div class="input-group">
+                <input type="text" id="username-input" placeholder="Enter your Space Cadet name..." autocomplete="off">
+            </div>
+            <div class="btn-center">
+                <button class="btn" id="start-btn" onclick="startQuiz()">Launch Mission 🚀</button>
+            </div>
+        </div>
+
+        <!-- 2. QUIZ SCREEN -->
+        <div id="screen-quiz" class="screen">
+            <div class="quiz-header">
+                <span class="badge" id="cadet-display">Cadet: --</span>
+                <span class="badge" id="question-tracker">Question 1/15</span>
+                <span class="badge" id="score-tracker">Score: 0</span>
+            </div>
+            <div class="question-text" id="question-text">Loading question...</div>
+            <div class="options-grid" id="options-grid"></div>
+            <div class="btn-center">
+                <button class="btn" id="next-btn" onclick="nextQuestion()" style="display: none;">Next Planet ➔</button>
+            </div>
+        </div>
+
+        <!-- 3. RESULTS SCREEN -->
+        <div id="screen-results" class="screen">
+            <h1>🏆 Mission Accomplished</h1>
+            <p style="text-align: center; font-size: 1.2rem; margin-bottom: 10px;" id="final-score-text"></p>
+            
+            <h2>📊 Galactic Dashboard</h2>
+            <div style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Cadet</th>
+                            <th>Score</th>
+                            <th>Accuracy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
+            </div>
+
+            <div class="btn-center">
+                <button class="btn" onclick="toggleSolutions()">🔍 Step-by-Step Solutions</button>
+                <button class="btn" onclick="restartQuiz()">🔄 Retake Mission</button>
+            </div>
+
+            <div id="solutions-container" style="display: none; margin-top: 30px;">
+                <h2>📝 Step-by-Step Solutions</h2>
+                <div id="solutions-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rawQuestions = [
+            {
+                id: 1,
+                question: "Which molecule has carbon atoms with <i>sp</i> hybrid orbitals?",
+                options: ["CH≡CH", "CH<sub>2</sub>=CH<sub>2</sub>", "CH<sub>3</sub>CH<sub>3</sub>", "C<sub>6</sub>H<sub>6</sub>"],
+                answer: 0,
+                explanation: "Triple-bonded carbon atoms (alkynes like CH≡CH) undergo <i>sp</i> hybridization[cite: 1]. CH<sub>2</sub>=CH<sub>2</sub> and benzene (C<sub>6</sub>H<sub>6</sub>) are <i>sp</i><sup>2</sup>, while CH<sub>3</sub>CH<sub>3</sub> is <i>sp</i><sup>3</sup>."
+            },
+            {
+                id: 2,
+                question: "Combustion of hydrocarbon X in excess oxygen produces 0.66 g of CO<sub>2</sub> and 0.27 g of H<sub>2</sub>O. At RTP, X is a gas with density 1.75 g dm<sup>-3</sup>. What is the molecular formula of X?<br><i>(1 mol gas at RTP = 24 dm<sup>3</sup>, C=12, H=1)</i>",
+                options: ["C<sub>3</sub>H<sub>6</sub>", "C<sub>2</sub>H<sub>4</sub>", "C<sub>2</sub>H<sub>6</sub>", "C<sub>3</sub>H<sub>8</sub>"],
+                answer: 0,
+                explanation: "1) Molar mass of X = density × 24 = 1.75 × 24 = 42 g/mol[cite: 1].<br>2) Moles of C = Moles of CO<sub>2</sub> = 0.66 / 44 = 0.015 mol[cite: 1].<br>3) Moles of H = 2 × Moles of H<sub>2</sub>O = 2 × (0.27 / 18) = 0.030 mol[cite: 1].<br>4) Ratio C:H = 1:2, empirical formula = CH<sub>2</sub>.<br>5) Molar mass (CH<sub>2</sub>)<sub>n</sub> = 42 ⟹ 14n = 42 ⟹ n = 3. Thus, X is C<sub>3</sub>H<sub>6</sub>[cite: 1]."
+            },
+            {
+                id: 3,
+                question: "What is the IUPAC name of the organic compound below?<br><img src=\"question 3.png\" alt=\"Question 3 Diagram\" style=\"max-width:100%; max-height:120px; margin:10px 0;\">",
+                options: [
+                    "2-Hydroxy-3-propyl-2-pentenoic acid",
+                    "2-Ethyl-1-hydroxy-1-hexenoic acid",
+                    "3-Ethyl-2-hydroxy-2-hexenoic acid",
+                    "4-Hydroxy-3-propyl-3-pentenoic acid"
+                ],
+                answer: 0,
+                explanation: "Chain counting starts from the carboxylic carbon (-COOH as C-1)[cite: 1]. C-2 has an -OH (hydroxyl) group, C-3 has a propyl substituent (-CH<sub>2</sub>CH<sub>2</sub>CH<sub>3</sub>), and the main carbon chain is 5 carbons long with a double bond at C-2[cite: 1]. Name: <b>2-Hydroxy-3-propyl-2-pentenoic acid</b>[cite: 1]."
+            },
+            {
+                id: 4,
+                question: "The following organic compounds show stereoisomerisms:<br><img src=\"question 4.png\" alt=\"Question 4 Diagram\" style=\"max-width:100%; max-height:180px; margin:10px 0;\"><br>What type of stereoisomerism is shown by each compound?",
+                options: [
+                    "I: Geometrical, II: Optical, III: Geometrical",
+                    "I: Geometrical, II: Optical, III: Optical",
+                    "I: Optical, II: Geometrical, III: Optical",
+                    "I: Optical, II: Optical, III: Geometrical"
+                ],
+                answer: 0,
+                explanation: "I has non-identical groups on both double-bonded carbons ➔ Geometrical[cite: 1]. II has a chiral carbon atom linked to 4 distinct groups ➔ Optical[cite: 1]. III has restriction of rotation about C=C with different substituent groups ➔ Geometrical[cite: 1]."
+            },
+            {
+                id: 5,
+                question: "The structural formulae of three organic acids are shown below:<br><img src=\"question 5.png\" alt=\"Question 5 Diagram\" style=\"max-width:100%; max-height:180px; margin:10px 0;\"><br>Which is the correct sequence of the acids according to the ascending order based on their p<i>K</i><sub>a</sub> values?",
+                options: ["III, II, I", "I, II, III", "I, III, II", "II, III, I"],
+                answer: 0,
+                explanation: "Lower p<i>K</i><sub>a</sub> means stronger acid. Nitro (-NO<sub>2</sub>) is an electron-withdrawing group that strongly stabilizes the conjugate base, making III the strongest acid (lowest p<i>K</i><sub>a</sub>)[cite: 2]. Methyl (-CH<sub>3</sub>) is electron-donating, making II weaker than III[cite: 2]. Phenol (I) is much weaker than carboxylic acids (highest p<i>K</i><sub>a</sub>)[cite: 2]. Ascending p<i>K</i><sub>a</sub>: III < II < I[cite: 2]."
+            },
+            {
+                id: 6,
+                question: "Warfarin is used as a rat poison. Its structure is shown below:<br><img src=\"question 6.png\" alt=\"Question 6 Diagram\" style=\"max-width:100%; max-height:220px; margin:10px 0;\"><br>Which of the carbon atoms labelled w, x, y and z undergoes electrophilic addition?",
+                options: ["x", "w", "y", "z"],
+                answer: 0,
+                explanation: "Carbon x is part of an alkene carbon-carbon double bond (C=C), which typically undergoes electrophilic addition reactions[cite: 2]."
+            },
+            {
+                id: 7,
+                question: "Which reagent can be used to chemically distinguish <b>nitrobenzene</b> from <b>toluene</b>?",
+                options: [
+                    "KMnO<sub>4</sub> / H<sup>+</sup>, Δ",
+                    "H<sub>2</sub>SO<sub>4</sub>",
+                    "Br<sub>2</sub> / FeBr<sub>3</sub>",
+                    "CH<sub>3</sub>COCl / AlCl<sub>3</sub>"
+                ],
+                answer: 0,
+                explanation: "Acidified KMnO<sub>4</sub> oxidizes the alkyl side chain of toluene to benzoic acid (decolorizing purple KMnO<sub>4</sub>), whereas nitrobenzene is resistant to oxidation under these conditions[cite: 2]."
+            },
+            {
+                id: 8,
+                question: "What is the product formed when ClCH<sub>2</sub>CH<sub>2</sub>-C<sub>6</sub>H<sub>4</sub>-Cl reacts with an aqueous solution of sodium hydroxide?",
+                options: [
+                    "<img src=\"8A.png\" alt=\"Option A\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"8B.png\" alt=\"Option B\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"8C.png\" alt=\"Option C\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"8D.png\" alt=\"Option D\" style=\"max-height:80px; vertical-align:middle;\">"
+                ],
+                answer: 0,
+                explanation: "Aqueous NaOH undergoes nucleophilic substitution (S<sub>N</sub>2) on aliphatic halogenoalkanes (ClCH<sub>2</sub>CH<sub>2</sub>-) to form an alcohol[cite: 3]. Aryl halides (chlorine directly attached to the benzene ring) are unreactive to aqueous NaOH at ambient conditions[cite: 3]. Thus, only the side chain -Cl is substituted to -OH[cite: 3]."
+            },
+            {
+                id: 9,
+                question: "Organic compounds R and S have the same functional group. The chemical properties of R and S are as follows:<br>(i) R and S react with KMnO<sub>4</sub>/H<sup>+</sup>.<br>(ii) R forms a yellow precipitate with alkaline iodine but S does not.<br>Which are the possible structural formulae of R and S?",
+                options: [
+                    "<img src=\"9A.png\" alt=\"Option A\" style=\"max-height:90px; vertical-align:middle;\">",
+                    "<img src=\"9B.png\" alt=\"Option B\" style=\"max-height:90px; vertical-align:middle;\">",
+                    "<img src=\"9C.png\" alt=\"Option C\" style=\"max-height:90px; vertical-align:middle;\">",
+                    "<img src=\"9D.png\" alt=\"Option D\" style=\"max-height:90px; vertical-align:middle;\">"
+                ],
+                answer: 0,
+                explanation: "Both are alcohols (same functional group) oxidizable by KMnO<sub>4</sub>/H<sup>+</sup>[cite: 3]. CH<sub>3</sub>CH(OH)C<sub>6</sub>H<sub>5</sub> contains the CH<sub>3</sub>CH(OH)- group, giving a positive iodoform test (yellow CHI<sub>3</sub> ppt)[cite: 3]. C<sub>6</sub>H<sub>5</sub>CH<sub>2</sub>OH is oxidized by KMnO<sub>4</sub> but lacks the methyl carbinol group, so it gives a negative iodoform test[cite: 3]."
+            },
+            {
+                id: 10,
+                question: "Which reaction does <b>not</b> produce a hydroxyl compound?",
+                options: [
+                    "Propanenitrile with mineral acid under reflux",
+                    "Fermentation of sugar",
+                    "Propene with cold alkaline potassium manganate(VII) solution",
+                    "Methanal with Grignard reagent in dry ether followed by hydrolysis"
+                ],
+                answer: 0,
+                explanation: "Acid hydrolysis of propanenitrile (CH<sub>3</sub>CH<sub>2</sub>CN) produces propanoic acid (CH<sub>3</sub>CH<sub>2</sub>COOH), NOT an alcohol[cite: 3]. The other reactions produce ethanol, propene-1,2-diol, and primary alcohols respectively[cite: 3]."
+            },
+            {
+                id: 11,
+                question: "Soap may be a sodium salt of a long-chain carboxylic acid. Which is <b>not</b> true about the salt?",
+                options: [
+                    "It undergoes partial dissociation in water.",
+                    "It is miscible in oil.",
+                    "Its general formula is RCOONa.",
+                    "It may be prepared by alkaline hydrolysis of a long-chain ester."
+                ],
+                answer: 0,
+                explanation: "Soap (RCOONa) is an ionic salt of a strong base (NaOH), so it dissociates <b>completely</b> into RCOO<sup>-</sup> and Na<sup>+</sup> in aqueous solution[cite: 3]."
+            },
+            {
+                id: 12,
+                question: "Which reagents can be used to prepare phenyl ethanoate?",
+                options: [
+                    "CH<sub>3</sub>COCl and C<sub>6</sub>H<sub>5</sub>OH",
+                    "CH<sub>3</sub>COOH and C<sub>6</sub>H<sub>5</sub>OH",
+                    "CH<sub>3</sub>CH<sub>2</sub>OH and C<sub>6</sub>H<sub>5</sub>COCl",
+                    "C<sub>6</sub>H<sub>5</sub>COOCH<sub>3</sub> and CH<sub>3</sub>CH<sub>2</sub>OH"
+                ],
+                answer: 0,
+                explanation: "Phenol (C<sub>6</sub>H<sub>5</sub>OH) is weakly nucleophilic and does not esterify readily with carboxylic acids (CH<sub>3</sub>COOH). Ethanoyl chloride (CH<sub>3</sub>COCl) is much more reactive and reacts vigorously with phenol to produce phenyl ethanoate[cite: 4]."
+            },
+            {
+                id: 13,
+                question: "Organic compound X reacts with sodium nitrite in dilute hydrochloric acid at 5°C to form Y. When Y reacts with phenol, a bright yellow solid is formed. What is the structural formula of X?",
+                options: [
+                    "<img src=\"13A.png\" alt=\"Option A\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"13B.png\" alt=\"Option B\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"13C.png\" alt=\"Option C\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"13D.png\" alt=\"Option D\" style=\"max-height:80px; vertical-align:middle;\">"
+                ],
+                answer: 0,
+                explanation: "Primary aromatic amines like aniline (C<sub>6</sub>H<sub>5</sub>NH<sub>2</sub>) react with nitrous acid at 0–5°C to form benzenediazonium salt (Y), which undergoes a coupling reaction with phenol to yield an azo dye[cite: 4]."
+            },
+            {
+                id: 14,
+                question: "An alkaline hydrolysis of compound X forms only compound Y. Y reacts with nitrous acid evolving a colourless gas. Addition of dilute sulphuric acid to Y forms a product which upon heating with ethanol in the presence of concentrated sulphuric acid forms a product which has a fruity smell. The structural formula of X is:",
+                options: [
+                    "<img src=\"14A.png\" alt=\"Option A\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"14B.png\" alt=\"Option B\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"14C.png\" alt=\"Option C\" style=\"max-height:80px; vertical-align:middle;\">",
+                    "<img src=\"14D.png\" alt=\"Option D\" style=\"max-height:80px; vertical-align:middle;\">"
+                ],
+                answer: 0,
+                explanation: "X is a peptide derivative (H<sub>2</sub>NCH<sub>2</sub>CONHCH<sub>2</sub>COOH) that hydrolyzes to yield glycine (H<sub>2</sub>NCH<sub>2</sub>COOH) as the sole product[cite: 4]. Free -NH<sub>2</sub> reacts with HNO<sub>2</sub> to release N<sub>2</sub> gas, and -COOH esterifies with ethanol[cite: 4]."
+            },
+            {
+                id: 15,
+                question: "Thermosetting polymer becomes harder on heating because:",
+                options: [
+                    "it forms a more extensive cross-linking",
+                    "its density increases",
+                    "it forms hydrogen bonds",
+                    "its number of double bonds reduces"
+                ],
+                answer: 0,
+                explanation: "Heating thermosetting polymers triggers covalent chemical reactions that form extensive three-dimensional cross-links between polymer chains, locking them permanently into a rigid structure[cite: 4]."
+            }
+        ];
+
+        let questions = [];
+        let currentQIndex = 0;
+        let score = 0;
+        let username = "";
+        let userAnswers = [];
+
+        // WEB AUDIO API
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        // CANVAS STARS
+        const canvas = document.getElementById('stars-canvas');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initStars();
+        }
+
+        function initStars() {
+            stars = [];
+            const count = Math.floor((canvas.width * canvas.height) / 3000);
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.02
+                });
+            }
+        }
+
+        function renderStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                ctx.fill();
+                s.alpha += s.speed;
+                if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+            });
+            requestAnimationFrame(renderStars);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        renderStars();
+
+        // QUIZ FLOW
+        function shuffleArray(arr) {
+            return arr.map(value => ({ value, sort: Math.random() }))
+                      .sort((a, b) => a.sort - b.sort)
+                      .map(item => item.value);
+        }
+
+        function prepareQuestions() {
+            let shuffledQ = shuffleArray([...rawQuestions]);
+            return shuffledQ.map(q => {
+                let optionsWithOriginalIndex = q.options.map((opt, idx) => ({
+                    text: opt,
+                    isCorrect: idx === q.answer
+                }));
+                let shuffledOpts = shuffleArray(optionsWithOriginalIndex);
+                return {
+                    ...q,
+                    shuffledOptions: shuffledOpts
+                };
+            });
+        }
+
+        function startQuiz() {
+            const input = document.getElementById('username-input');
+            if (!input.value.trim()) {
+                alert("Please enter your Space Cadet name to begin!");
+                return;
+            }
+            username = input.value.trim();
+            document.getElementById('cadet-display').innerText = `Cadet: ${username}`;
+            
+            initAudio();
+            questions = prepareQuestions();
+            currentQIndex = 0;
+            score = 0;
+            userAnswers = [];
+
+            switchScreen('screen-quiz');
+            loadQuestion();
+        }
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQIndex];
+            document.getElementById('question-tracker').innerText = `Question ${currentQIndex + 1}/${questions.length}`;
+            document.getElementById('score-tracker').innerText = `Score: ${score}`;
+            document.getElementById('next-btn').style.display = 'none';
+
+            const qText = document.getElementById('question-text');
+            qText.innerHTML = q.question;
+
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+
+            q.shuffledOptions.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerHTML = `<b style="margin-right: 10px; color: var(--neon-blue);">${String.fromCharCode(65 + idx)}.</b> ${opt.text}`;
+                btn.onclick = () => selectOption(idx);
+                grid.appendChild(btn);
+            });
+        }
+
+        function selectOption(selectedIndex) {
+            const q = questions[currentQIndex];
+            const buttons = document.querySelectorAll('.option-btn');
+            
+            buttons.forEach(b => b.disabled = true);
+
+            const isCorrect = q.shuffledOptions[selectedIndex].isCorrect;
+            userAnswers.push({
+                question: q.question,
+                options: q.shuffledOptions,
+                selectedIndex: selectedIndex,
+                explanation: q.explanation,
+                isCorrect: isCorrect
+            });
+
+            if (isCorrect) {
+                buttons[selectedIndex].classList.add('correct');
+                playSound('correct');
+                score += 10;
+            } else {
+                buttons[selectedIndex].classList.add('wrong');
+                q.shuffledOptions.forEach((opt, idx) => {
+                    if (opt.isCorrect) buttons[idx].classList.add('correct');
+                });
+                playSound('wrong');
+            }
+
+            document.getElementById('score-tracker').innerText = `Score: ${score}`;
+            document.getElementById('next-btn').style.display = 'inline-block';
+        }
+
+        function nextQuestion() {
+            currentQIndex++;
+            if (currentQIndex < questions.length) {
+                loadQuestion();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            switchScreen('screen-results');
+            
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            document.getElementById('final-score-text').innerHTML = 
+                `Excellent work, <b>${username}</b>! You scored <span style="color:var(--neon-blue); font-weight:bold;">${score}</span> out of ${questions.length * 10} points.`;
+
+            saveLeaderboard(username, score, questions.length);
+            renderLeaderboard();
+            renderSolutions();
+        }
+
+        function saveLeaderboard(name, score, totalQ) {
+            let board = JSON.parse(localStorage.getItem('galaxy_quiz_board') || '[]');
+            const accuracy = Math.round((score / (totalQ * 10)) * 100) + '%';
+            board.push({ name, score, accuracy, date: new Date().getTime() });
+            board.sort((a, b) => b.score - a.score);
+            localStorage.setItem('galaxy_quiz_board', JSON.stringify(board));
+        }
+
+        function renderLeaderboard() {
+            let board = JSON.parse(localStorage.getItem('galaxy_quiz_board') || '[]');
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+
+            board.slice(0, 10).forEach((entry, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${idx === 0 ? '👑 1' : idx + 1}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.score}</td>
+                    <td>${entry.accuracy}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderSolutions() {
+            const container = document.getElementById('solutions-list');
+            container.innerHTML = '';
+
+            userAnswers.forEach((ans, i) => {
+                const card = document.createElement('div');
+                card.className = `solution-card ${ans.isCorrect ? 'correct-card' : 'wrong-card'}`;
+                
+                let userChoiceText = ans.selectedIndex !== null ? ans.options[ans.selectedIndex].text : 'None';
+                let correctOption = ans.options.find(o => o.isCorrect).text;
+
+                card.innerHTML = `
+                    <strong>Q${i + 1}: ${ans.question}</strong><br>
+                    <div style="margin: 8px 0; font-size:0.95rem;">
+                        <span style="color: ${ans.isCorrect ? 'var(--correct-green)' : 'var(--wrong-red)'}">
+                            Your Answer: ${userChoiceText} ${ans.isCorrect ? '✓' : '✗'}
+                        </span><br>
+                        ${!ans.isCorrect ? `<span style="color: var(--neon-blue)">Correct Answer: ${correctOption}</span><br>` : ''}
+                    </div>
+                    <div class="explanation">💡 <b>Solution:</b><br>${ans.explanation.replace(/\n/g, '<br>')}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleSolutions() {
+            const sol = document.getElementById('solutions-container');
+            if (sol.style.display === 'none') {
+                sol.style.display = 'block';
+                sol.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                sol.style.display = 'none';
+            }
+        }
+
+        function restartQuiz() {
+            document.getElementById('solutions-container').style.display = 'none';
+            startQuiz();
+        }
+    </script>
+</body>
+</html>
